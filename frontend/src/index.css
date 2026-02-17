@@ -2,6 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Exact colors from styles.go (Dark mode) */
+  --ghost-purple: #B388FF;
+  --ghost-pink: #FF80AB;
+  --soft-green: #69F0AE;
+  --warm-white: #F5F5F5;
+  --dim-gray: #666666;
+  --warning-red: #FF5252;
+  --bg: #1E1E2E;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
-  @apply bg-slate-900 text-white font-sans antialiased overflow-hidden;
+  background: var(--bg);
+  color: var(--warm-white);
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Thin scrollbar matching the terminal */
+::-webkit-scrollbar {
+  width: 0px;
 }

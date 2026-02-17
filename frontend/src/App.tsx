@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Users } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
-// Import Wails runtime methods
-import { SendMessage, GetUsername, GetPeerCount } from '../wailsjs/go/main/App';
+// Wails bindings
+import { SendMessage, GetUsername, GetPeerCount, SetUsername } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
 interface ChatMessage {
@@ -13,150 +10,341 @@ interface ChatMessage {
     timestamp: number;
 }
 
-function cn(...inputs: (string | undefined | null | false)[]) {
-    return twMerge(clsx(inputs));
-}
+// ──────────────────────────────────────────────────
+//  ASCII Art (large "HUSH" banner)
+// ──────────────────────────────────────────────────
+const HUSH_ASCII = `
+ ██╗  ██╗██╗   ██╗███████╗██╗  ██╗
+ ██║  ██║██║   ██║██╔════╝██║  ██║
+ ███████║██║   ██║███████╗███████║
+ ██╔══██║██║   ██║╚════██║██╔══██║
+ ██║  ██║╚██████╔╝███████║██║  ██║
+ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+`;
 
-function App() {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [inputText, setInputText] = useState('');
-    const [username, setUsername] = useState('');
-    const [peerCount, setPeerCount] = useState(0);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
+// ──────────────────────────────────────────────────
+//  Welcome Screen
+// ──────────────────────────────────────────────────
+function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
+    const [name, setName] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        // Initial setup
-        GetUsername().then(setUsername);
-        GetPeerCount().then(setPeerCount);
-
-        // Poll peer count every 2s
-        const interval = setInterval(() => {
-            GetPeerCount().then(setPeerCount);
-        }, 2000);
-
-        // Listen for new messages
-        const unsubscribe = EventsOn('new_message', (msg: ChatMessage) => {
-            setMessages((prev) => [...prev, msg]);
-            setTimeout(scrollToBottom, 100);
-        });
-
-        return () => {
-            clearInterval(interval);
-        };
+        inputRef.current?.focus();
     }, []);
 
-    const handleSend = () => {
-        if (!inputText.trim()) return;
-        SendMessage(inputText);
-        setInputText('');
+    const handleSubmit = () => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        onEnter(trimmed);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            handleSend();
+            handleSubmit();
         }
     };
 
     return (
-        <div className="flex flex-col h-screen bg-slate-900 text-slate-100 font-sans">
+        <div
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100vh',
+                width: '100vw',
+                background: 'var(--bg)',
+                fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
+                color: 'var(--warm-white)',
+                WebkitAppRegion: 'drag',
+            } as any}
+        >
+            {/* Ghost emoji */}
+            <div style={{ fontSize: '48px', marginBottom: '8px' }}>👻</div>
+
+            {/* ASCII Art */}
+            <pre
+                style={{
+                    color: 'var(--ghost-purple)',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    lineHeight: '1.1',
+                    textAlign: 'center',
+                    margin: 0,
+                    userSelect: 'none',
+                }}
+            >
+                {HUSH_ASCII}
+            </pre>
+
+            {/* Subtitle */}
+            <div
+                style={{
+                    color: 'var(--dim-gray)',
+                    fontStyle: 'italic',
+                    fontSize: '13px',
+                    marginTop: '4px',
+                    marginBottom: '24px',
+                    userSelect: 'none',
+                }}
+            >
+                ghost chat — serverless, encrypted, local
+            </div>
+
+            {/* Username input box */}
+            <div
+                style={{
+                    border: '1px solid var(--ghost-purple)',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '280px',
+                    WebkitAppRegion: 'no-drag',
+                } as any}
+            >
+                <span style={{ color: 'var(--dim-gray)', marginRight: '8px', userSelect: 'none' }}>{'>'}</span>
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="enter your name..."
+                    spellCheck={false}
+                    autoFocus
+                    style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        color: 'var(--warm-white)',
+                        fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
+                        fontSize: '14px',
+                        caretColor: 'var(--warm-white)',
+                    }}
+                />
+            </div>
+
+            {/* Hint */}
+            <div
+                style={{
+                    color: 'var(--dim-gray)',
+                    fontSize: '11px',
+                    marginTop: '12px',
+                    userSelect: 'none',
+                }}
+            >
+                press enter to join
+            </div>
+        </div>
+    );
+}
+
+// ──────────────────────────────────────────────────
+//  Chat Screen (exact TUI replica)
+// ──────────────────────────────────────────────────
+function ChatScreen({ username }: { username: string }) {
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [inputText, setInputText] = useState('');
+    const [peerCount, setPeerCount] = useState(0);
+    const [showWarning, setShowWarning] = useState(false);
+    const [lastSent, setLastSent] = useState(0);
+    const viewportRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        GetPeerCount().then(setPeerCount);
+
+        const interval = setInterval(() => {
+            GetPeerCount().then(setPeerCount);
+        }, 1000);
+
+        EventsOn('new_message', (msg: ChatMessage) => {
+            setMessages((prev) => [...prev, msg]);
+        });
+
+        inputRef.current?.focus();
+        return () => clearInterval(interval);
+    }, []);
+
+    // Auto-scroll
+    useEffect(() => {
+        if (viewportRef.current) {
+            viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+        }
+    }, [messages]);
+
+    const formatTime = (ts: number) => {
+        const d = new Date(ts * 1000);
+        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    };
+
+    const handleSend = () => {
+        const content = inputText.trim();
+        if (!content) return;
+
+        if (Date.now() - lastSent < 1500) {
+            setShowWarning(true);
+            return;
+        }
+
+        setShowWarning(false);
+        SendMessage(content);
+        setInputText('');
+        setLastSent(Date.now());
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSend();
+        } else {
+            setShowWarning(false);
+        }
+    };
+
+    const borderColor = showWarning ? 'var(--warning-red)' : 'var(--ghost-purple)';
+
+    return (
+        <div
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100vh',
+                width: '100vw',
+                background: 'var(--bg)',
+                fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
+                fontSize: '14px',
+                lineHeight: '1.4',
+                color: 'var(--warm-white)',
+            }}
+        >
             {/* Header */}
-            <header className="flex items-center justify-between px-6 py-4 bg-slate-800/50 backdrop-blur-md border-b border-slate-700/50 draggable">
-                <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-red-400/80" />
-                    <div className="w-3 h-3 rounded-full bg-amber-400/80" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-400/80" />
-                    <h1 className="ml-4 text-lg font-semibold tracking-tight text-white/90">HushApp</h1>
-                </div>
+            <div style={{ padding: '4px 8px', WebkitAppRegion: 'drag' } as any}>
+                <span style={{ color: 'var(--ghost-purple)', fontWeight: 'bold' }}>
+                    👻 Hush — Ghost Chat
+                </span>
+            </div>
 
-                <div className="flex items-center gap-4 text-sm font-medium text-slate-400">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/50">
-                        <Users className="w-4 h-4 text-emerald-400" />
-                        <span className="text-emerald-400">{peerCount} online</span>
+            {/* Status */}
+            <div style={{ padding: '0 8px', color: 'var(--dim-gray)', fontStyle: 'italic' }}>
+                {'  '}online as {username}{'  '}({peerCount} active peers)
+            </div>
+
+            {/* Divider */}
+            <div style={{ padding: '2px 0', color: 'var(--dim-gray)', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                {'─'.repeat(200)}
+            </div>
+
+            {/* Messages */}
+            <div
+                ref={viewportRef}
+                style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: '2px 0',
+                    minHeight: 0,
+                }}
+            >
+                {messages.length === 0 ? (
+                    <div style={{ color: 'var(--dim-gray)', fontStyle: 'italic', padding: '4px 8px' }}>
+                        {'  '}waiting for ghosts to appear... 👻
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>{username}</span>
-                    </div>
-                </div>
-            </header>
-
-            {/* Message List */}
-            <main className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2 opacity-60">
-                        <Users className="w-12 h-12 mb-2" />
-                        <p>Waiting for ghosts to appear...</p>
-                    </div>
-                )}
-
-                {messages.map((msg, i) => {
-                    const isMe = msg.sender === username;
-                    // Determine if previous message was from same sender to group
-                    const isSequence = i > 0 && messages[i - 1].sender === msg.sender;
-
-                    return (
-                        <div
-                            key={`${msg.timestamp}-${i}`}
-                            className={cn(
-                                "flex flex-col max-w-[80%]",
-                                isMe ? "self-end items-end" : "self-start items-start",
-                                isSequence ? "mt-1" : "mt-4"
-                            )}
-                        >
-                            {!isMe && !isSequence && (
-                                <span className="text-xs font-medium text-slate-400 mb-1 ml-1">{msg.sender}</span>
-                            )}
-
-                            <div
-                                className={cn(
-                                    "px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm transition-all duration-200",
-                                    isMe
-                                        ? "bg-indigo-600 text-white rounded-br-none hover:bg-indigo-500"
-                                        : "bg-slate-700 text-slate-100 rounded-bl-none hover:bg-slate-600"
-                                )}
-                            >
-                                {msg.content}
-                            </div>
-
-                            {!isSequence && (
-                                <span className="text-[10px] text-slate-500 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                ) : (
+                    messages.map((msg, i) => {
+                        const isMe = msg.sender === username;
+                        return (
+                            <div key={`${msg.timestamp}-${i}`} style={{ whiteSpace: 'pre' }}>
+                                <span style={{ color: 'var(--dim-gray)' }}>
+                                    {'  '}{formatTime(msg.timestamp)}{'  '}
                                 </span>
-                            )}
-                        </div>
-                    );
-                })}
-                <div ref={messagesEndRef} />
-            </main>
+                                <span style={{
+                                    color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
+                                    fontWeight: 'bold',
+                                }}>
+                                    {isMe ? 'you' : msg.sender}
+                                </span>
+                                <span style={{ color: 'var(--warm-white)' }}>
+                                    : {msg.content}
+                                </span>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
 
-            {/* Input Area */}
-            <footer className="p-4 bg-slate-800/30 backdrop-blur-md border-t border-slate-700/50">
-                <div className="relative group">
+            {/* Divider */}
+            <div style={{ padding: '2px 0', color: 'var(--dim-gray)', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                {'─'.repeat(200)}
+            </div>
+
+            {/* Warning */}
+            <div style={{ height: '20px', padding: '0 8px' }}>
+                {showWarning && (
+                    <span style={{ color: 'var(--warning-red)', fontWeight: 'bold' }}>
+                        {'  '}⚡ Slow down!
+                    </span>
+                )}
+            </div>
+
+            {/* Input */}
+            <div style={{ padding: '0 8px 8px 8px' }}>
+                <div
+                    style={{
+                        border: `1px solid ${borderColor}`,
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                    }}
+                >
                     <input
+                        ref={inputRef}
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Type a message..."
-                        className="w-full pl-4 pr-12 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-slate-200 placeholder-slate-500 transition-all shadow-inner"
+                        placeholder="type a message..."
+                        spellCheck={false}
                         autoFocus
+                        style={{
+                            width: '100%',
+                            background: 'transparent',
+                            border: 'none',
+                            outline: 'none',
+                            color: 'var(--warm-white)',
+                            fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
+                            fontSize: '14px',
+                            caretColor: 'var(--warm-white)',
+                        }}
                     />
-                    <button
-                        onClick={handleSend}
-                        disabled={!inputText.trim()}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-400 disabled:opacity-50 disabled:hover:text-slate-400 transition-colors"
-                    >
-                        <Send className="w-5 h-5" />
-                    </button>
                 </div>
-            </footer>
+            </div>
         </div>
     );
+}
+
+// ──────────────────────────────────────────────────
+//  App — routes between Welcome and Chat
+// ──────────────────────────────────────────────────
+function App() {
+    const [screen, setScreen] = useState<'welcome' | 'chat'>('welcome');
+    const [username, setUsernameState] = useState('');
+
+    const handleEnter = (name: string) => {
+        setUsernameState(name);
+        SetUsername(name);
+        setScreen('chat');
+    };
+
+    if (screen === 'welcome') {
+        return <WelcomeScreen onEnter={handleEnter} />;
+    }
+
+    return <ChatScreen username={username} />;
 }
 
 export default App;
