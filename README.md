@@ -1,42 +1,68 @@
-# HushApp
+# 👻 HushApp
 
-HushApp is a secure, serverless, local-first chat application that works over Wi-Fi (mDNS) with zero configuration. It features both a modern GUI and a terminal-based interface (TUI).
+**Secure, serverless chat that just works.** No accounts. No servers. Just open it and talk to anyone on the same Wi-Fi.
+
+[![Latest Release](https://img.shields.io/github/v/release/ekrishgupta/HushApp?style=flat-square&label=latest)](https://github.com/ekrishgupta/HushApp/releases/latest)
+
+---
+
+## Download
+
+| Platform | Download |
+|----------|----------|
+| 🍎 **macOS** | [**Download for Mac**](https://github.com/ekrishgupta/HushApp/releases/latest/download/HushApp-macOS.zip) |
+| 🪟 **Windows** | [**Download for Windows**](https://github.com/ekrishgupta/HushApp/releases/latest/download/HushApp-Windows-installer.exe) |
+
+> **macOS note:** After downloading, unzip and drag to Applications. On first launch, right-click → Open (the app is not yet code-signed).
+
+---
 
 ## Features
-- **Serverless**: No central server needed. Peers discover each other automatically on the local network.
-- **Secure**: Uses `libp2p` for encrypted communication.
-- **Cross-Platform**: Runs on macOS, Windows, and Linux.
-- **Dual Interface**: Use the native GUI or the lightweight terminal interface.
 
-## Getting Started
+- 👻 **Zero Config** — Open the app, start chatting. No accounts, no servers.
+- 🔒 **Encrypted** — All messages are encrypted via `libp2p`.
+- 📡 **Local Network** — Peers discover each other automatically over Wi-Fi (mDNS).
+- 💻 **Cross-Platform** — Native apps for macOS and Windows.
+- ⌨️ **Terminal Mode** — Lightweight TUI for power users.
+
+---
+
+## For Developers
 
 ### Prerequisites
 - Go 1.25+
-- Node.js & npm (for GUI build)
-- Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- Node.js & npm
+- Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 
-### Running the GUI
+### Build from source
 ```bash
 # Development mode (hot reload)
 wails dev
 
-# Build production binary
+# Production build
 wails build
-open build/bin/HushApp.app
 ```
 
-### Running the Terminal UI (TUI)
-You can run the terminal version directly from the source:
+### Terminal UI
 ```bash
 go run cmd/tui/main.go
 ```
 
-## Project Structure
-- `cmd/tui/`: Entry point for the Terminal UI.
-- `frontend/`: React + Tailwind CSS frontend code for the GUI.
-- `internal/`: Shared core logic (networking, chat protocol).
-- `app.go`: Wails backend bindings.
-- `main.go`: Wails GUI entry point.
+### Project Structure
+| Path | Description |
+|------|-------------|
+| `cmd/tui/` | Terminal UI entry point |
+| `frontend/` | React + Tailwind CSS frontend |
+| `internal/` | Core networking & chat logic |
+| `app.go` | Wails backend bindings |
+| `main.go` | GUI entry point |
+
+### Creating a Release
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+# GitHub Actions will build and publish automatically
+```
 
 ## License
 MIT
