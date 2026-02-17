@@ -1,13 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
-	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -17,16 +13,13 @@ import (
 )
 
 func main() {
-	username := promptUsername()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Channel to deliver the chat instance once network is ready
+	// Start network init immediately in background
 	readyCh := make(chan *chat.Chat, 1)
 	errCh := make(chan error, 1)
 
-	// Initialize network in background so the TUI renders instantly
 	go func() {
 		h, err := network.NewHost()
 		if err != nil {
@@ -49,27 +42,13 @@ func main() {
 		readyCh <- c
 	}()
 
-	// Launch TUI immediately (shows "connecting..." until network is ready)
-	model := ui.NewModel(username, nil, nil)
+	// Launch TUI immediately — username prompt is the first screen,
+	// network connects in the background while the user types
+	model := ui.NewModel("", nil, nil)
 	model.SetNetworkChannels(readyCh, errCh, ctx)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "tui error: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-func promptUsername() string {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("👻 enter a username (or press enter for a random one): ")
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-
-	if name == "" {
-		name = fmt.Sprintf("Ghost-%d", rand.New(rand.NewSource(time.Now().UnixNano())).Intn(900)+100)
-	}
-
-	fmt.Printf("   welcome, %s\n\n", name)
-	return name
 }
