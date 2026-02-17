@@ -22,33 +22,36 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 1. Create libp2p host
-	h, err := network.NewHost()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-	defer h.Close()
+	// Channel to deliver the chat instance once network is ready
+	readyCh := make(chan *chat.Chat, 1)
+	errCh := make(chan error, 1)
 
-	// 2. Start mDNS discovery
-	if err := network.SetupDiscovery(h); err != nil {
-		fmt.Fprintf(os.Stderr, "discovery error: %v\n", err)
-		os.Exit(1)
-	}
+	// Initialize network in background so the TUI renders instantly
+	go func() {
+		h, err := network.NewHost()
+		if err != nil {
+			errCh <- fmt.Errorf("host: %w", err)
+			return
+		}
 
-	// 3. Set up GossipSub
-	topic, sub, err := network.SetupPubSub(ctx, h)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "pubsub error: %v\n", err)
-		os.Exit(1)
-	}
+		if err := network.SetupDiscovery(h); err != nil {
+			errCh <- fmt.Errorf("discovery: %w", err)
+			return
+		}
 
-	// 4. Create chat and start listening
-	c := chat.NewChat(topic, sub, h.ID())
-	msgChan := c.ListenForMessages(ctx)
+		topic, sub, err := network.SetupPubSub(ctx, h)
+		if err != nil {
+			errCh <- fmt.Errorf("pubsub: %w", err)
+			return
+		}
 
-	// 5. Launch TUI
-	model := ui.NewModel(username, c, msgChan)
+		c := chat.NewChat(topic, sub, h.ID())
+		readyCh <- c
+	}()
+
+	// Launch TUI immediately (shows "connecting..." until network is ready)
+	model := ui.NewModel(username, nil, nil)
+	model.SetNetworkChannels(readyCh, errCh, ctx)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "tui error: %v\n", err)

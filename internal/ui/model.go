@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -17,6 +18,16 @@ const spamCooldown = 1500 * time.Millisecond
 
 // IncomingMsg is a Bubble Tea message wrapping a chat message from the network.
 type IncomingMsg chat.ChatMessage
+
+// NetworkReady signals that the network has finished initializing.
+type NetworkReady struct {
+	Chat *chat.Chat
+}
+
+// NetworkError signals a network initialization failure.
+type NetworkError struct {
+	Err error
+}
 
 // Model is the Bubble Tea model for the chat TUI.
 type Model struct {
@@ -37,6 +48,14 @@ type Model struct {
 	ready  bool
 
 	peerCount int
+
+	// Async network init
+	connecting bool
+	networkErr string
+	readyCh    chan *chat.Chat
+	errCh      chan error
+	netCtx     context.Context
+	spinFrame  int
 }
 
 type tickMsg time.Time
@@ -47,6 +66,23 @@ func tick() tea.Cmd {
 	})
 }
 
+// spinTickMsg drives the connecting spinner animation.
+type spinTickMsg struct{}
+
+func spinTick() tea.Cmd {
+	return tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
+		return spinTickMsg{}
+	})
+}
+
+// SetNetworkChannels sets the channels for async network initialization.
+func (m *Model) SetNetworkChannels(readyCh chan *chat.Chat, errCh chan error, ctx context.Context) {
+	m.connecting = true
+	m.readyCh = readyCh
+	m.errCh = errCh
+	m.netCtx = ctx
+}
+
 // NewModel creates a new chat TUI model.
 func NewModel(username string, c *chat.Chat, msgChan <-chan chat.ChatMessage) Model {
 	ti := textinput.New()
@@ -55,12 +91,27 @@ func NewModel(username string, c *chat.Chat, msgChan <-chan chat.ChatMessage) Mo
 	ti.CharLimit = 500
 	ti.Width = 60
 
+	connecting := c == nil
+
 	return Model{
-		username: username,
-		chat:     c,
-		msgChan:  msgChan,
-		input:    ti,
-		messages: []chat.ChatMessage{},
+		username:   username,
+		chat:       c,
+		msgChan:    msgChan,
+		input:      ti,
+		messages:   []chat.ChatMessage{},
+		connecting: connecting,
+	}
+}
+
+// waitForNetwork returns a command that waits for the network to be ready.
+func (m Model) waitForNetwork() tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case c := <-m.readyCh:
+			return NetworkReady{Chat: c}
+		case err := <-m.errCh:
+			return NetworkError{Err: err}
+		}
 	}
 }
 
@@ -77,11 +128,13 @@ func (m Model) waitForMsg() tea.Cmd {
 
 // Init starts listening for network messages.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(
-		textinput.Blink,
-		m.waitForMsg(),
-		tick(),
-	)
+	cmds := []tea.Cmd{textinput.Blink, tick()}
+	if m.connecting {
+		cmds = append(cmds, m.waitForNetwork(), spinTick())
+	} else if m.msgChan != nil {
+		cmds = append(cmds, m.waitForMsg())
+	}
+	return tea.Batch(cmds...)
 }
 
 // Update handles events.
@@ -89,8 +142,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tickMsg:
+	case spinTickMsg:
+		if m.connecting {
+			m.spinFrame++
+			cmds = append(cmds, spinTick())
+		}
+
+	case NetworkReady:
+		m.connecting = false
+		m.chat = msg.Chat
+		m.msgChan = msg.Chat.ListenForMessages(m.netCtx)
 		m.peerCount = m.chat.PeerCount()
+		if m.ready {
+			m.viewport.SetContent(m.renderMessages())
+		}
+		cmds = append(cmds, m.waitForMsg())
+
+	case NetworkError:
+		m.connecting = false
+		m.networkErr = msg.Err.Error()
+		if m.ready {
+			m.viewport.SetContent(m.renderMessages())
+		}
+
+	case tickMsg:
+		if m.chat != nil {
+			m.peerCount = m.chat.PeerCount()
+		}
 		cmds = append(cmds, tick())
 
 	case tea.WindowSizeMsg:
@@ -119,6 +197,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case tea.KeyEnter:
+			if m.connecting || m.chat == nil {
+				break
+			}
 			content := strings.TrimSpace(m.input.Value())
 			if content == "" {
 				break
@@ -166,6 +247,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // renderMessages formats all messages for the viewport.
 func (m Model) renderMessages() string {
+	if m.connecting {
+		spinChars := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		frame := spinChars[m.spinFrame%len(spinChars)]
+		return StatusStyle.Render(fmt.Sprintf("\n  %s connecting to network...\n", frame))
+	}
+
+	if m.networkErr != "" {
+		return WarningStyle.Render(fmt.Sprintf("\n  ✗ network error: %s\n", m.networkErr))
+	}
+
 	if len(m.messages) == 0 {
 		return StatusStyle.Render("\n  waiting for ghosts to appear... 👻\n")
 	}
@@ -205,9 +296,18 @@ func (m Model) View() string {
 	// Header
 	b.WriteString(Header())
 	b.WriteString("\n")
+
 	// Status bar below header
-	status := fmt.Sprintf("  online as %s  (%d active peers)", m.username, m.peerCount)
-	b.WriteString(StatusStyle.Render(status))
+	if m.connecting {
+		spinChars := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		frame := spinChars[m.spinFrame%len(spinChars)]
+		b.WriteString(StatusStyle.Render(fmt.Sprintf("  %s connecting...", frame)))
+	} else if m.networkErr != "" {
+		b.WriteString(WarningStyle.Render("  ✗ failed to connect"))
+	} else {
+		status := fmt.Sprintf("  online as %s  (%d active peers)", m.username, m.peerCount)
+		b.WriteString(StatusStyle.Render(status))
+	}
 	b.WriteString("\n")
 	b.WriteString(Divider(m.width))
 	b.WriteString("\n")
