@@ -10,6 +10,10 @@ export function GetUsername() {
   return window['go']['main']['App']['GetUsername']();
 }
 
+export function GetWiFiName() {
+  return window['go']['main']['App']['GetWiFiName']();
+}
+
 export function SendMessage(arg1) {
   return window['go']['main']['App']['SendMessage'](arg1);
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/ekrishgupta/HushApp/internal/chat"
+	"github.com/ekrishgupta/HushApp/internal/network"
 )
 
 const spamCooldown = 1500 * time.Millisecond
@@ -37,6 +38,7 @@ type Model struct {
 	ready  bool
 
 	peerCount int
+	wifiName  string
 }
 
 type tickMsg time.Time
@@ -91,6 +93,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
 		m.peerCount = m.chat.PeerCount()
+		m.wifiName = network.GetWiFiSSID()
 		cmds = append(cmds, tick())
 
 	case tea.WindowSizeMsg:
@@ -200,7 +203,7 @@ func (m Model) View() string {
 	b.WriteString(Header())
 	b.WriteString("\n")
 	// Status bar below header
-	status := fmt.Sprintf("  online as %s  (%d active peers)", m.username, m.peerCount)
+	status := fmt.Sprintf("  online as %s  (%d active peers)  📡 %s", m.username, m.peerCount, m.wifiName)
 	b.WriteString(StatusStyle.Render(status))
 	b.WriteString("\n")
 	b.WriteString(Divider(m.width))
