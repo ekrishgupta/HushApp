@@ -10,10 +10,10 @@
 
 | Platform | Download |
 |----------|----------|
-| 🍎 **macOS** | [**Download for Mac**](https://github.com/ekrishgupta/HushApp/releases/latest/download/HushApp-macOS.zip) |
-| 🪟 **Windows** | [**Download for Windows**](https://github.com/ekrishgupta/HushApp/releases/latest/download/HushApp-Windows-installer.exe) |
+| 🍎 **macOS** | [**Download for Mac**](https://github.com/ekrishgupta/HushApp/releases/latest/download/Hush-macOS.dmg) |
+| 🪟 **Windows** | [**Download for Windows**](https://github.com/ekrishgupta/HushApp/releases/latest/download/Hush-Windows-installer.exe) |
 
-> **macOS note:** After downloading, unzip and drag to Applications. On first launch, right-click → Open (the app is not yet code-signed).
+> **macOS:** Open the `.dmg` and drag Hush to Applications. On first launch, right-click → Open (the app is not yet code-signed).
 
 ---
 

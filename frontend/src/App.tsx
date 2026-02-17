@@ -61,8 +61,7 @@ function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
                 WebkitAppRegion: 'drag',
             } as any}
         >
-            {/* Ghost emoji */}
-            <div style={{ fontSize: '48px', marginBottom: '8px' }}>👻</div>
+
 
             {/* ASCII Art */}
             <pre
@@ -90,7 +89,7 @@ function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
                     userSelect: 'none',
                 }}
             >
-                ghost chat — serverless, encrypted, local
+                talk to anyone on your wifi — no servers, no trace
             </div>
 
             {/* Username input box */}
@@ -179,7 +178,7 @@ function ChatScreen({ username }: { username: string }) {
 
     const formatTime = (ts: number) => {
         const d = new Date(ts * 1000);
-        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
     };
 
     const handleSend = () => {
@@ -257,18 +256,20 @@ function ChatScreen({ username }: { username: string }) {
                     messages.map((msg, i) => {
                         const isMe = msg.sender === username;
                         return (
-                            <div key={`${msg.timestamp}-${i}`} style={{ whiteSpace: 'pre' }}>
-                                <span style={{ color: 'var(--dim-gray)' }}>
-                                    {'  '}{formatTime(msg.timestamp)}{'  '}
+                            <div key={`${msg.timestamp}-${i}`} style={{ whiteSpace: 'pre', display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
+                                <span>
+                                    <span style={{
+                                        color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
+                                        fontWeight: 'bold',
+                                    }}>
+                                        {isMe ? 'you' : msg.sender}
+                                    </span>
+                                    <span style={{ color: 'var(--warm-white)' }}>
+                                        : {msg.content}
+                                    </span>
                                 </span>
-                                <span style={{
-                                    color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
-                                    fontWeight: 'bold',
-                                }}>
-                                    {isMe ? 'you' : msg.sender}
-                                </span>
-                                <span style={{ color: 'var(--warm-white)' }}>
-                                    : {msg.content}
+                                <span style={{ color: 'var(--dim-gray)', flexShrink: 0, marginLeft: '16px' }}>
+                                    {formatTime(msg.timestamp)}
                                 </span>
                             </div>
                         );

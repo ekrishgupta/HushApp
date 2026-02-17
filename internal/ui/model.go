@@ -172,7 +172,7 @@ func (m Model) renderMessages() string {
 
 	var b strings.Builder
 	for _, msg := range m.messages {
-		ts := TimestampStyle.Render(msg.Time().Format("15:04"))
+		ts := TimestampStyle.Render(msg.Time().Format("15:04:05"))
 
 		var sender, content string
 		if msg.Sender == m.username {
@@ -183,7 +183,13 @@ func (m Model) renderMessages() string {
 			content = PeerMsgContent.Render(msg.Content)
 		}
 
-		b.WriteString(fmt.Sprintf("  %s  %s: %s\n", ts, sender, content))
+		left := fmt.Sprintf("  %s: %s", sender, content)
+		// Pad the timestamp to the right
+		padding := m.width - lipgloss.Width(left) - lipgloss.Width(ts) - 2
+		if padding < 2 {
+			padding = 2
+		}
+		b.WriteString(fmt.Sprintf("%s%s%s\n", left, strings.Repeat(" ", padding), ts))
 	}
 	return b.String()
 }
