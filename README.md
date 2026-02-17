@@ -1,4 +1,4 @@
-# 👻 HushApp
+# 👻 Hush
 
 **Secure, serverless chat that just works.** No accounts. No servers. Just open it and talk to anyone on the same Wi-Fi.
 
