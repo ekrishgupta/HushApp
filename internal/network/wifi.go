@@ -11,15 +11,26 @@ import (
 func GetWiFiSSID() string {
 	switch runtime.GOOS {
 	case "darwin":
-		// macOS: use networksetup
-		out, err := exec.Command("networksetup", "-getairportnetwork", "en0").Output()
-		if err != nil {
-			return "unknown"
+		// Primary: ipconfig getsummary (works on macOS Sonoma+)
+		out, err := exec.Command("ipconfig", "getsummary", "en0").Output()
+		if err == nil {
+			for _, line := range strings.Split(string(out), "\n") {
+				trimmed := strings.TrimSpace(line)
+				if strings.HasPrefix(trimmed, "SSID : ") {
+					ssid := strings.TrimPrefix(trimmed, "SSID : ")
+					if ssid != "" {
+						return ssid
+					}
+				}
+			}
 		}
-		// Output: "Current Wi-Fi Network: MyNetwork"
-		line := strings.TrimSpace(string(out))
-		if strings.HasPrefix(line, "Current Wi-Fi Network: ") {
-			return strings.TrimPrefix(line, "Current Wi-Fi Network: ")
+		// Fallback: networksetup (older macOS)
+		out, err = exec.Command("networksetup", "-getairportnetwork", "en0").Output()
+		if err == nil {
+			line := strings.TrimSpace(string(out))
+			if strings.HasPrefix(line, "Current Wi-Fi Network: ") {
+				return strings.TrimPrefix(line, "Current Wi-Fi Network: ")
+			}
 		}
 		return "unknown"
 
