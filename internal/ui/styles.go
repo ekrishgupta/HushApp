@@ -64,6 +64,10 @@ var (
 	// Divider line
 	DividerStyle = lipgloss.NewStyle().
 			Foreground(dimGray)
+
+	// Selected message highlight
+	SelectedMsgStyle = lipgloss.NewStyle().
+				Background(lipgloss.AdaptiveColor{Light: "#E0E0E0", Dark: "#333333"})
 )
 
 // Header renders the app title.
