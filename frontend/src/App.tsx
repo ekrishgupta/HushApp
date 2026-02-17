@@ -145,77 +145,120 @@ function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
 // ──────────────────────────────────────────────────
 //  Message Item Component
 // ──────────────────────────────────────────────────
-function MessageItem({ msg, username, formatTime }: { msg: ChatMessage, username: string, formatTime: (ts: number) => string }) {
-    const [expanded, setExpanded] = useState(false);
+function MessageItem({ msg, username, formatTime, isSelected, isExpanded, onToggle }: {
+    msg: ChatMessage,
+    username: string,
+    formatTime: (ts: number) => string,
+    isSelected: boolean,
+    isExpanded: boolean,
+    onToggle: () => void
+}) {
     const isMe = msg.sender === username;
 
     return (
         <div
-            onClick={() => setExpanded(!expanded)}
+            onClick={onToggle}
             style={{
                 cursor: 'pointer',
                 padding: '2px 8px',
                 userSelect: 'text',
+                position: 'relative',
             }}
         >
-            {!expanded ? (
-                // Compact View
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', overflow: 'hidden', alignItems: 'center', flex: 1 }}>
-                        <span style={{
-                            color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
-                            fontWeight: 'bold',
-                            whiteSpace: 'nowrap',
-                            marginRight: '8px',
-                        }}>
-                            {isMe ? 'you' : msg.sender}
-                        </span>
-                        <span style={{ color: 'var(--warm-white)' }}>: </span>
-                        <span style={{
-                            color: 'var(--warm-white)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            marginLeft: '4px',
-                            flex: 1,
-                        }}>
-                            {msg.content}
-                        </span>
-                        <span style={{ color: 'var(--dim-gray)', marginLeft: '4px' }}>(...)</span>
-                    </div>
-                    <span style={{ color: 'var(--dim-gray)', flexShrink: 0, marginLeft: '16px' }}>
-                        {formatTime(msg.timestamp)}
-                    </span>
+            {/* Selection Indicator */}
+            {isSelected && (
+                <div style={{
+                    position: 'absolute',
+                    left: '0',
+                    top: '2px', // Align with first line
+                    color: 'var(--ghost-pink)',
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                    lineHeight: '1.4',
+                }}>
+                    {'>'}
                 </div>
-            ) : (
-                // Expanded View
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>
-                            <span style={{ color: '#ff79c6', marginRight: '8px' }}>{'>'}</span>
+            )}
+
+            <div style={{ marginLeft: '12px' }}> {/* Indent for indicator space */}
+                {!isExpanded ? (
+                    // Compact View
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', overflow: 'hidden', alignItems: 'center', flex: 1 }}>
                             <span style={{
                                 color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
                                 fontWeight: 'bold',
+                                whiteSpace: 'nowrap',
                             }}>
                                 {isMe ? 'you' : msg.sender}
                             </span>
-                            <span style={{ color: 'var(--warm-white)' }}>:</span>
-                        </span>
-                        <span style={{ color: 'var(--dim-gray)' }}>
+                            <span style={{ color: 'var(--warm-white)' }}>: </span>
+                            <span style={{
+                                color: 'var(--warm-white)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                flex: 1,
+                                marginLeft: '8px', // Fixed margin for content
+                            }}>
+                                {msg.content}
+                            </span>
+                            {/* Manual ellipsis - highlighted when arrowed/selected */}
+                            <span style={{
+                                color: isSelected ? 'var(--ghost-pink)' : 'var(--dim-gray)',
+                                marginLeft: '4px',
+                                fontWeight: isSelected ? 'bold' : 'normal',
+                                display: 'inline-block'
+                            }}>(...)</span>
+                        </div>
+                        <span style={{ color: 'var(--dim-gray)', flexShrink: 0, marginLeft: '16px' }}>
                             {formatTime(msg.timestamp)}
                         </span>
                     </div>
+                ) : (
+                    // Expanded View (Grid for precise alignment and straight wrap edge)
                     <div style={{
-                        color: 'var(--warm-white)',
-                        whiteSpace: 'pre-wrap',
-                        marginLeft: '22px', // Approx indent
-                        marginTop: '2px',
-                        wordBreak: 'break-word',
+                        display: 'grid',
+                        gridTemplateColumns: 'min-content 1fr',
+                        columnGap: '8px',
+                        alignItems: 'start'
                     }}>
-                        {msg.content}
+                        {/* Sender Label */}
+                        <div style={{
+                            color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
+                            fontWeight: 'bold',
+                            whiteSpace: 'nowrap',
+                            lineHeight: '1.4',
+                        }}>
+                            {isMe ? 'you' : msg.sender}:
+                        </div>
+
+                        {/* Content Block */}
+                        <div style={{
+                            color: 'var(--warm-white)',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            minWidth: 0,
+                            lineHeight: '1.4',
+                            position: 'relative',
+                            paddingRight: '80px', // Reserve space to ensure a straight vertical wrap edge
+                        }}>
+                            {/* Timestamp - Pinned to the top right of the message block */}
+                            <span style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: 0,
+                                color: 'var(--dim-gray)',
+                                fontSize: '14px', // Match main message font size
+                                userSelect: 'none',
+                            }}>
+                                {formatTime(msg.timestamp)}
+                            </span>
+                            {msg.content}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
@@ -225,6 +268,8 @@ function MessageItem({ msg, username, formatTime }: { msg: ChatMessage, username
 // ──────────────────────────────────────────────────
 function ChatScreen({ username }: { username: string }) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [selectedMsg, setSelectedMsg] = useState(-1);
+    const [expanded, setExpanded] = useState<Record<number, boolean>>({});
     const [inputText, setInputText] = useState('');
     const [peerCount, setPeerCount] = useState(0);
     const [showWarning, setShowWarning] = useState(false);
@@ -294,16 +339,53 @@ function ChatScreen({ username }: { username: string }) {
             setPlaceholderShown(false);
         }
 
+        // Clear selection if user starts typing
+        if (selectedMsg !== -1) setSelectedMsg(-1);
+
         // Simple row calculation based on newlines
         const lineCount = val.split('\n').length;
         setRows(Math.min(Math.max(lineCount, 1), 5));
     };
 
+    const toggleExpansion = (idx: number) => {
+        setExpanded(prev => ({ ...prev, [idx]: !prev[idx] }));
+    };
+
     const handleSendKey = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'ArrowUp') {
+            // Navigate Up
+            if (selectedMsg === -1 && messages.length > 0) {
+                e.preventDefault();
+                setSelectedMsg(messages.length - 1);
+            } else if (selectedMsg > 0) {
+                e.preventDefault();
+                setSelectedMsg(selectedMsg - 1);
+            }
+        } else if (e.key === 'ArrowDown') {
+            // Navigate Down
+            if (selectedMsg !== -1) {
+                e.preventDefault();
+                if (selectedMsg < messages.length - 1) {
+                    setSelectedMsg(selectedMsg + 1);
+                } else {
+                    setSelectedMsg(-1); // Deselect
+                }
+            }
+        } else if (e.key === 'Enter') {
+            if (selectedMsg !== -1) {
+                // Toggle Expansion
+                e.preventDefault();
+                toggleExpansion(selectedMsg);
+            } else if (!e.shiftKey) {
+                // Send Message
+                e.preventDefault();
+                handleSend();
+                setRows(1);
+            }
+        } else if (e.key === 'Escape') {
+            // Deselect
             e.preventDefault();
-            handleSend();
-            setRows(1);
+            setSelectedMsg(-1);
         }
     };
 
@@ -367,6 +449,12 @@ function ChatScreen({ username }: { username: string }) {
                             msg={msg}
                             username={username}
                             formatTime={formatTime}
+                            isSelected={selectedMsg === i}
+                            isExpanded={expanded[i] || false}
+                            onToggle={() => {
+                                setSelectedMsg(i);
+                                toggleExpansion(i);
+                            }}
                         />
                     ))
                 )}
@@ -404,6 +492,7 @@ function ChatScreen({ username }: { username: string }) {
                         ref={inputRef as any}
                         value={inputText}
                         onChange={handleInputChange}
+                        onFocus={() => setSelectedMsg(-1)}
                         onKeyDown={handleSendKey} // Updated handler name
                         placeholder={placeholderShown ? "type a message..." : ""}
                         spellCheck={false}
