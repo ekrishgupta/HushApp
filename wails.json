@@ -1,5 +1,5 @@
 {
-  "name": "HushApp",
+  "name": "Hush",
   "version": "1.0.0",
   "author": {
     "name": "Krish Gupta",
@@ -7,7 +7,7 @@
   },
   "frontend:dir": "frontend",
   "wailsjs:dir": "frontend",
-  "output:filename": "hush",
+  "output:filename": "Hush",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
