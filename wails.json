@@ -1,0 +1,15 @@
+{
+  "name": "HushApp",
+  "version": "1.0.0",
+  "author": {
+    "name": "Krish Gupta",
+    "email": "krishg07@users.noreply.github.com"
+  },
+  "frontend:dir": "frontend",
+  "wailsjs:dir": "frontend",
+  "output:filename": "hush",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto"
+}
