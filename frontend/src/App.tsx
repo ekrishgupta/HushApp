@@ -143,6 +143,84 @@ function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
 }
 
 // ──────────────────────────────────────────────────
+//  Message Item Component
+// ──────────────────────────────────────────────────
+function MessageItem({ msg, username, formatTime }: { msg: ChatMessage, username: string, formatTime: (ts: number) => string }) {
+    const [expanded, setExpanded] = useState(false);
+    const isMe = msg.sender === username;
+
+    return (
+        <div
+            onClick={() => setExpanded(!expanded)}
+            style={{
+                cursor: 'pointer',
+                padding: '2px 8px',
+                userSelect: 'text',
+            }}
+        >
+            {!expanded ? (
+                // Compact View
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', overflow: 'hidden', alignItems: 'center', flex: 1 }}>
+                        <span style={{
+                            color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
+                            fontWeight: 'bold',
+                            whiteSpace: 'nowrap',
+                            marginRight: '8px',
+                        }}>
+                            {isMe ? 'you' : msg.sender}
+                        </span>
+                        <span style={{ color: 'var(--warm-white)' }}>: </span>
+                        <span style={{
+                            color: 'var(--warm-white)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            marginLeft: '4px',
+                            flex: 1,
+                        }}>
+                            {msg.content}
+                        </span>
+                        <span style={{ color: 'var(--dim-gray)', marginLeft: '4px' }}>(...)</span>
+                    </div>
+                    <span style={{ color: 'var(--dim-gray)', flexShrink: 0, marginLeft: '16px' }}>
+                        {formatTime(msg.timestamp)}
+                    </span>
+                </div>
+            ) : (
+                // Expanded View
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>
+                            <span style={{ color: '#ff79c6', marginRight: '8px' }}>{'>'}</span>
+                            <span style={{
+                                color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
+                                fontWeight: 'bold',
+                            }}>
+                                {isMe ? 'you' : msg.sender}
+                            </span>
+                            <span style={{ color: 'var(--warm-white)' }}>:</span>
+                        </span>
+                        <span style={{ color: 'var(--dim-gray)' }}>
+                            {formatTime(msg.timestamp)}
+                        </span>
+                    </div>
+                    <div style={{
+                        color: 'var(--warm-white)',
+                        whiteSpace: 'pre-wrap',
+                        marginLeft: '22px', // Approx indent
+                        marginTop: '2px',
+                        wordBreak: 'break-word',
+                    }}>
+                        {msg.content}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ──────────────────────────────────────────────────
 //  Chat Screen (exact TUI replica)
 // ──────────────────────────────────────────────────
 function ChatScreen({ username }: { username: string }) {
@@ -205,6 +283,36 @@ function ChatScreen({ username }: { username: string }) {
         }
     };
 
+    // Input Logic
+    const [rows, setRows] = useState(1);
+    const [placeholderShown, setPlaceholderShown] = useState(true);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const val = e.target.value;
+        setInputText(val);
+        if (placeholderShown && val.length > 0) {
+            setPlaceholderShown(false);
+        }
+
+        // Simple row calculation based on newlines
+        const lineCount = val.split('\n').length;
+        setRows(Math.min(Math.max(lineCount, 1), 5));
+    };
+
+    const handleSendKey = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+            setRows(1);
+        }
+    };
+
+    // Override handleSend to clear rows too
+    const handleGUI_Send = () => {
+        handleSend();
+        setRows(1);
+    }
+
     const borderColor = showWarning ? 'var(--warning-red)' : 'var(--ghost-purple)';
 
     return (
@@ -253,27 +361,14 @@ function ChatScreen({ username }: { username: string }) {
                         {'  '}waiting for ghosts to appear... 👻
                     </div>
                 ) : (
-                    messages.map((msg, i) => {
-                        const isMe = msg.sender === username;
-                        return (
-                            <div key={`${msg.timestamp}-${i}`} style={{ whiteSpace: 'pre', display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
-                                <span>
-                                    <span style={{
-                                        color: isMe ? 'var(--soft-green)' : 'var(--ghost-pink)',
-                                        fontWeight: 'bold',
-                                    }}>
-                                        {isMe ? 'you' : msg.sender}
-                                    </span>
-                                    <span style={{ color: 'var(--warm-white)' }}>
-                                        : {msg.content}
-                                    </span>
-                                </span>
-                                <span style={{ color: 'var(--dim-gray)', flexShrink: 0, marginLeft: '16px' }}>
-                                    {formatTime(msg.timestamp)}
-                                </span>
-                            </div>
-                        );
-                    })
+                    messages.map((msg, i) => (
+                        <MessageItem
+                            key={`${msg.timestamp}-${i}`}
+                            msg={msg}
+                            username={username}
+                            formatTime={formatTime}
+                        />
+                    ))
                 )}
             </div>
 
@@ -299,18 +394,21 @@ function ChatScreen({ username }: { username: string }) {
                         borderRadius: '6px',
                         padding: '4px 8px',
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start', // Top align for multiline
                     }}
                 >
-                    <input
-                        ref={inputRef}
-                        type="text"
+                    <span style={{ marginRight: '8px', userSelect: 'none', color: 'var(--dim-gray)' }}>
+                        {rows > 1 ? '  ' : '>'}
+                    </span>
+                    <textarea
+                        ref={inputRef as any}
                         value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="type a message..."
+                        onChange={handleInputChange}
+                        onKeyDown={handleSendKey} // Updated handler name
+                        placeholder={placeholderShown ? "type a message..." : ""}
                         spellCheck={false}
                         autoFocus
+                        rows={rows}
                         style={{
                             width: '100%',
                             background: 'transparent',
@@ -320,6 +418,10 @@ function ChatScreen({ username }: { username: string }) {
                             fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace",
                             fontSize: '14px',
                             caretColor: 'var(--warm-white)',
+                            resize: 'none',
+                            overflow: 'hidden', // Hide scrollbar usually, or auto?
+                            padding: 0,
+                            lineHeight: '1.4',
                         }}
                     />
                 </div>
