@@ -95,8 +95,3 @@ func (a *App) GetPeerCount() int {
 	}
 	return a.chat.PeerCount()
 }
-
-// GetWiFiName returns the current Wi-Fi network name
-func (a *App) GetWiFiName() string {
-	return network.GetWiFiSSID()
-}

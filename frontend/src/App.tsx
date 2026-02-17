@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 // Wails bindings
-import { SendMessage, GetUsername, GetPeerCount, SetUsername, GetWiFiName } from '../wailsjs/go/main/App';
+import { SendMessage, GetUsername, GetPeerCount, SetUsername } from '../wailsjs/go/main/App';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 
 interface ChatMessage {
@@ -27,12 +27,10 @@ const HUSH_ASCII = `
 // ──────────────────────────────────────────────────
 function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
     const [name, setName] = useState('');
-    const [wifiName, setWifiName] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         inputRef.current?.focus();
-        GetWiFiName().then(setWifiName);
     }, []);
 
     const handleSubmit = () => {
@@ -141,20 +139,6 @@ function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
             >
                 press enter to join
             </div>
-
-            {/* WiFi indicator */}
-            {wifiName && wifiName !== 'unknown' && (
-                <div
-                    style={{
-                        color: 'var(--dim-gray)',
-                        fontSize: '11px',
-                        marginTop: '8px',
-                        userSelect: 'none',
-                    }}
-                >
-                    📡 {wifiName}
-                </div>
-            )}
         </div>
     );
 }
@@ -166,7 +150,6 @@ function ChatScreen({ username }: { username: string }) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputText, setInputText] = useState('');
     const [peerCount, setPeerCount] = useState(0);
-    const [wifiName, setWifiName] = useState('');
     const [showWarning, setShowWarning] = useState(false);
     const [lastSent, setLastSent] = useState(0);
     const viewportRef = useRef<HTMLDivElement>(null);
@@ -174,11 +157,9 @@ function ChatScreen({ username }: { username: string }) {
 
     useEffect(() => {
         GetPeerCount().then(setPeerCount);
-        GetWiFiName().then(setWifiName);
 
         const interval = setInterval(() => {
             GetPeerCount().then(setPeerCount);
-            GetWiFiName().then(setWifiName);
         }, 1000);
 
         EventsOn('new_message', (msg: ChatMessage) => {
@@ -250,7 +231,7 @@ function ChatScreen({ username }: { username: string }) {
 
             {/* Status */}
             <div style={{ padding: '0 8px', color: 'var(--dim-gray)', fontStyle: 'italic' }}>
-                {'  '}online as {username}{'  '}({peerCount} active peers){'  '}📡 {wifiName}
+                {'  '}online as {username}{'  '}({peerCount} active peers)
             </div>
 
             {/* Divider */}

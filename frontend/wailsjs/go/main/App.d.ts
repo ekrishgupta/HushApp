@@ -5,8 +5,6 @@ export function GetPeerCount():Promise<number>;
 
 export function GetUsername():Promise<string>;
 
-export function GetWiFiName():Promise<string>;
-
 export function SendMessage(arg1:string):Promise<void>;
 
 export function SetUsername(arg1:string):Promise<void>;
