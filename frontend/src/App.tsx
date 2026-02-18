@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 
 // Wails bindings
 import { SendMessage, GetUsername, GetPeerCount, SetUsername } from '../wailsjs/go/main/App';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime';
+import MarkdownMessage from './components/MarkdownMessage';
 
 interface ChatMessage {
     sender: string;
@@ -193,7 +194,7 @@ function MessageItem({ msg, username, formatTime, isSelected, isExpanded, onTogg
                                 {isMe ? 'you' : msg.sender}
                             </span>
                             <span style={{ color: 'var(--warm-white)' }}>: </span>
-                            <span style={{
+                            <div style={{
                                 color: 'var(--warm-white)',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
@@ -201,8 +202,8 @@ function MessageItem({ msg, username, formatTime, isSelected, isExpanded, onTogg
                                 flex: 1,
                                 marginLeft: '8px', // Fixed margin for content
                             }}>
-                                {msg.content}
-                            </span>
+                                <MarkdownMessage content={msg.content} compact />
+                            </div>
                             {/* Manual ellipsis - highlighted when arrowed/selected */}
                             <span style={{
                                 color: isSelected ? 'var(--ghost-pink)' : 'var(--dim-gray)',
@@ -236,7 +237,7 @@ function MessageItem({ msg, username, formatTime, isSelected, isExpanded, onTogg
                         {/* Content Block */}
                         <div style={{
                             color: 'var(--warm-white)',
-                            whiteSpace: 'pre-wrap',
+                            // whiteSpace: 'pre-wrap', // Removed for Markdown
                             wordBreak: 'break-word',
                             minWidth: 0,
                             lineHeight: '1.4',
@@ -254,7 +255,7 @@ function MessageItem({ msg, username, formatTime, isSelected, isExpanded, onTogg
                             }}>
                                 {formatTime(msg.timestamp)}
                             </span>
-                            {msg.content}
+                            <MarkdownMessage content={msg.content} />
                         </div>
                     </div>
                 )}
@@ -289,7 +290,10 @@ function ChatScreen({ username }: { username: string }) {
         });
 
         inputRef.current?.focus();
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            EventsOff('new_message');
+        };
     }, []);
 
     // Auto-scroll
