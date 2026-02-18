@@ -645,7 +645,7 @@ func (m Model) viewChat() string {
 	b.WriteString("\n")
 
 	// Status bar
-	status := fmt.Sprintf("  online as %s  (%d active peers)", m.username, m.peerCount)
+	status := fmt.Sprintf("  online as %s  (%d active ghosts)", m.username, m.peerCount)
 	b.WriteString(StatusStyle.Render(status))
 	b.WriteString("\n")
 	b.WriteString(Divider(m.width))

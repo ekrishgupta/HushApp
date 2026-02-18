@@ -35,8 +35,12 @@ function WelcomeScreen({ onEnter }: { onEnter: (name: string) => void }) {
     }, []);
 
     const handleSubmit = () => {
-        const trimmed = name.trim();
-        if (!trimmed) return;
+        let trimmed = name.trim();
+        if (!trimmed) {
+            // Auto-assign Ghost-XXX
+            const randomId = Math.floor(Math.random() * 900) + 100;
+            trimmed = `Ghost-${randomId}`;
+        }
         onEnter(trimmed);
     };
 
@@ -424,7 +428,7 @@ function ChatScreen({ username }: { username: string }) {
 
             {/* Status */}
             <div style={{ padding: '0 8px', color: 'var(--dim-gray)', fontStyle: 'italic' }}>
-                {'  '}online as {username}{'  '}({peerCount} active peers)
+                {'  '}online as {username}{'  '}({peerCount} active ghosts)
             </div>
 
             {/* Divider */}
