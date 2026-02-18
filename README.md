@@ -11,7 +11,6 @@
 | Platform | Download |
 |----------|----------|
 | 🍎 **macOS** | [**Download for Mac**](https://github.com/ekrishgupta/HushApp/releases/latest/download/Hush-macOS.dmg) |
-| 🪟 **Windows** | [**Download for Windows**](https://github.com/ekrishgupta/HushApp/releases/latest/download/Hush-Windows-installer.exe) |
 
 > **macOS:** Open the `.dmg` and drag Hush to Applications. On first launch, right-click → Open (the app is not yet code-signed).
 
@@ -22,7 +21,7 @@
 - 👻 **Zero Config** — Open the app, start chatting. No accounts, no servers.
 - 🔒 **Encrypted** — All messages are encrypted via `libp2p`.
 - 📡 **Local Network** — Peers discover each other automatically over Wi-Fi (mDNS).
-- 💻 **Cross-Platform** — Native apps for macOS and Windows.
+- 💻 **Native** — Native app for macOS.
 - ⌨️ **Terminal Mode** — Lightweight TUI for power users.
 
 ---
