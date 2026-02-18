@@ -10,7 +10,10 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/truncate"
 
 	"github.com/ekrishgupta/HushApp/internal/chat"
 )
@@ -58,6 +61,9 @@ type Model struct {
 	width  int
 	height int
 	ready  bool
+
+	renderer        *glamour.TermRenderer
+	compactRenderer *glamour.TermRenderer
 
 	peerCount int
 
@@ -111,6 +117,9 @@ func NewModel(username string, c *chat.Chat, msgChan <-chan chat.ChatMessage) Mo
 		messages:    []chat.ChatMessage{},
 		expanded:    make(map[int]bool),
 		selectedMsg: -1,
+		// internal/ui/model.go
+		// We initialize renderer later on resize or here with default
+		// Actually best to init here with safe default
 	}
 }
 
@@ -152,6 +161,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+
+		// Update glamour renderer with new width
+		// Subtract some padding for aesthetics
+		wrapWidth := m.width - 10
+		if wrapWidth < 20 {
+			wrapWidth = 20
+		}
+		style := styles.DraculaStyleConfig
+		var zero uint = 0
+		style.Document.Margin = &zero
+		// Keep padding/indent for structured content? Maybe set to 0 too for compact.
+		// But expanded view needs indentation?
+		// Since we use the same renderer, let's just make it compact.
+		// Expanded view handles indentation manually anyway.
+		m.renderer, _ = glamour.NewTermRenderer(
+			glamour.WithStyles(style),
+			glamour.WithWordWrap(wrapWidth),
+		)
+
+		// Compact renderer: No wrap, no margin
+		styleCompact := styles.DraculaStyleConfig
+		styleCompact.Document.Margin = &zero
+		m.compactRenderer, _ = glamour.NewTermRenderer(
+			glamour.WithStyles(styleCompact),
+			glamour.WithWordWrap(0),
+		)
 
 		if m.screen == "chat" {
 			headerH := 3
@@ -223,10 +258,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.screen == "welcome" {
 				return m.handleWelcomeEnter()
 			}
-			// If a message is selected, toggle expansion
+			// If a message is selected, ignore Enter (disable expansion)
 			if m.selectedMsg != -1 {
-				m.expanded[m.selectedMsg] = !m.expanded[m.selectedMsg]
-				m.viewport.SetContent(m.renderMessages())
 				return m, nil
 			}
 			return m.handleChatEnter()
@@ -423,71 +456,56 @@ func (m Model) renderMessages() string {
 
 		if !isExpanded {
 			// Compact view: Single line with truncation
+			// Render Markdown first to get ANSI
+			var rendered string
+			if m.compactRenderer != nil {
+				// Use compact renderer
+				out, err := m.compactRenderer.Render(rawContent)
+				if err == nil {
+					rendered = strings.TrimSpace(out)
+				} else {
+					rendered = rawContent
+				}
+			} else {
+				rendered = rawContent
+			}
 
-			// Calculate space occupied by static elements
-			// Margin(2) + Sender + ": " (2) + "   " (3 min padding) + Timestamp
+			// Extract first line
+			if idx := strings.Index(rendered, "\n"); idx != -1 {
+				rendered = rendered[:idx]
+			}
+
+			// Calculate space
 			prefixWidth := lipgloss.Width(margin) + lipgloss.Width(senderLabel) + 2
 			suffixWidth := 3 + lipgloss.Width(tsRaw)
 			availableWidth := m.width - prefixWidth - suffixWidth
-
-			// Sanity check
 			if availableWidth < 10 {
 				availableWidth = 10
 			}
 
-			// Clean content processing
-			contentRunes := []rune(rawContent)
-			hasNewline := strings.Contains(rawContent, "\n")
-			needsTruncation := len(contentRunes) > availableWidth || hasNewline
+			// Prepare ellipsis
+			var tail string
+			if isSelected {
+				tail = SelectedMsgStyle.Render(" (...)")
+			} else {
+				tail = " (...)"
+			}
 
+			// Truncate ANSI-aware
 			var displayContent string
-			var ellipsis string
-
-			if needsTruncation {
-				// We need to truncate
-				// Determine ellipsis style
-				if isSelected {
-					// Highlight the (...)
-					ellipsis = SelectedMsgStyle.Render(" (...)")
-				} else {
-					ellipsis = " (...)"
-				}
-
-				cutLen := availableWidth - 6 // Leave room for " (...)" which is 6 chars length
-				if cutLen < 0 {
-					cutLen = 0
-				}
-
-				// If newline comes before cutLen, cut there
-				newlineIdx := strings.Index(rawContent, "\n")
-				if newlineIdx != -1 && newlineIdx < cutLen {
-					cutLen = newlineIdx
-				}
-
-				if cutLen < len(contentRunes) {
-					displayContent = string(contentRunes[:cutLen])
-				} else {
-					displayContent = string(contentRunes[:cutLen])
-				}
+			// Check if we actually need truncation to avoid unnecessary ellipsis
+			if lipgloss.Width(rendered) > availableWidth {
+				displayContent = truncate.StringWithTail(rendered, uint(availableWidth), tail)
 			} else {
-				displayContent = rawContent
+				displayContent = rendered
 			}
 
-			// Render content
-			if msg.Sender == m.username {
-				styledContent = SelfMsgContent.Render(displayContent)
-			} else {
-				styledContent = PeerMsgContent.Render(displayContent)
-			}
-
-			// Append highlighted ellipsis if needed
-			if needsTruncation {
-				styledContent += ellipsis
-			}
+			// For style consistency (green/pink colors), we might want to apply them ONLY if
+			// the content is plain text (no escape codes). But checking for escape codes is fragile.
+			// Let's rely on glamour's dracula theme which is nice enough.
+			styledContent = displayContent
 
 			left := fmt.Sprintf("%s%s: %s", margin, styledSender, styledContent)
-
-			// Calculate padding manually to push timestamp to right
 			currentLen := lipgloss.Width(left)
 			padding := m.width - currentLen - lipgloss.Width(ts)
 			if padding < 2 {
@@ -497,83 +515,57 @@ func (m Model) renderMessages() string {
 			lines = fmt.Sprintf("%s%s%s", left, strings.Repeat(" ", padding), ts)
 
 		} else {
-			// Expanded view: Multiline
+			// Expanded view: Multiline Markdown (glamour)
+			// We render the Header (Sender + Timestamp) followed by Content
 
-			// 1. Setup Header Prefix
-			// Format: "MarginSender: "
+			// Header
+			// Format: "MarginSender:                               TIMESTAMP"
 			colon := ": "
-			headerPrefix := fmt.Sprintf("%s%s%s", margin, styledSender, colon)
-			indentWidth := lipgloss.Width(headerPrefix)
+			headerLeft := fmt.Sprintf("%s%s%s", margin, styledSender, colon) // Includes color codes
 
-			// 2. Calculate Available Width for Line 1 Content
-			// Total - Indent - Timestamp - MinPadding(2)
+			// Calculate padding for timestamp alignment
+			// Ensure timestamp is pinned to right
 			tsWidth := lipgloss.Width(ts)
-			maxLine1Width := m.width - indentWidth - tsWidth - 2
-			if maxLine1Width < 0 {
-				maxLine1Width = 0
+			headerWidth := lipgloss.Width(headerLeft)
+			padding := m.width - headerWidth - tsWidth - 2 // -2 margin right
+			if padding < 2 {
+				padding = 2
 			}
 
-			// 3. Split Content
-			runes := []rune(rawContent)
-			splitIdx := len(runes)
-			if splitIdx > maxLine1Width {
-				splitIdx = maxLine1Width
-			}
+			header := fmt.Sprintf("%s%s%s", headerLeft, strings.Repeat(" ", padding), ts)
 
-			// Check for newline in the first chunk
-			isNewlineSplit := false
-			if idx := strings.Index(string(runes[:splitIdx]), "\n"); idx != -1 {
-				splitIdx = idx
-				isNewlineSplit = true
-			}
-
-			line1Text := string(runes[:splitIdx])
-
-			remainingStart := splitIdx
-			if isNewlineSplit && remainingStart < len(runes) {
-				remainingStart++ // Skip the newline
-			}
-			remainingText := string(runes[remainingStart:])
-
-			// 4. Render Line 1
-			var styledLine1 string
-			if msg.Sender == m.username {
-				styledLine1 = SelfMsgContent.Render(line1Text)
-			} else {
-				styledLine1 = PeerMsgContent.Render(line1Text)
-			}
-
-			// Construct full line 1: Prefix + Content + Padding + Timestamp
-			currentLen := lipgloss.Width(headerPrefix) + lipgloss.Width(styledLine1)
-			paddingNeeded := m.width - currentLen - tsWidth
-			if paddingNeeded < 2 {
-				paddingNeeded = 2
-			}
-
-			lines = fmt.Sprintf("%s%s%s%s", headerPrefix, styledLine1, strings.Repeat(" ", paddingNeeded), ts)
-
-			// 5. Render Remaining Lines
-			if len(remainingText) > 0 {
-				wrapW := maxLine1Width
-				if wrapW < 10 {
-					wrapW = 10
-				}
-
-				// Style and Wrap
-				var wrappedBlock string
-				if msg.Sender == m.username {
-					wrappedBlock = SelfMsgContent.Width(wrapW).Render(remainingText)
+			// Content (Markdown)
+			// Use our glamour renderer
+			var renderedContent string
+			if m.renderer != nil {
+				out, err := m.renderer.Render(rawContent)
+				if err != nil {
+					renderedContent = rawContent // Fallback
 				} else {
-					wrappedBlock = PeerMsgContent.Width(wrapW).Render(remainingText)
+					renderedContent = out
 				}
+			} else {
+				renderedContent = rawContent
+			}
 
-				// Indent
-				indentStr := strings.Repeat(" ", indentWidth)
-				rows := strings.Split(wrappedBlock, "\n")
-				for _, r := range rows {
-					lines += "\n" + indentStr + r
+			// Trim excessive newlines from glamour output
+			renderedContent = strings.TrimSpace(renderedContent)
+
+			// Indent the rendered block to align with content start (optional)
+			// Or just indent a bit (2 spaces)
+			// Glamour adds margins usually, so maybe just 2 spaces
+			indent := strings.Repeat(" ", 2)
+			rows := strings.Split(renderedContent, "\n")
+			var indentedBlock string
+			for i, r := range rows {
+				if i == 0 {
+					indentedBlock += indent + r
+				} else {
+					indentedBlock += "\n" + indent + r
 				}
 			}
+
+			lines = header + "\n" + indentedBlock
 		}
 
 		b.WriteString(lines + "\n")
