@@ -7,8 +7,8 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/ekrishgupta/HushApp/internal/chat"
-	"github.com/ekrishgupta/HushApp/internal/network"
+	"github.com/ekrishgupta/Hush/internal/chat"
+	"github.com/ekrishgupta/Hush/internal/network"
 )
 
 // App struct

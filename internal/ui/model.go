@@ -15,7 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/truncate"
 
-	"github.com/ekrishgupta/HushApp/internal/chat"
+	"github.com/ekrishgupta/Hush/internal/chat"
 )
 
 const (

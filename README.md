@@ -2,7 +2,7 @@
 
 **Secure, serverless chat that just works.** No accounts. No servers. Just open it and talk to anyone on the same Wi-Fi.
 
-[![Latest Release](https://img.shields.io/github/v/release/ekrishgupta/HushApp?style=flat-square&label=latest)](https://github.com/ekrishgupta/HushApp/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/ekrishgupta/HushApp?style=flat-square&label=latest)](https://github.com/ekrishgupta/Hush/releases/latest)
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Platform | Download |
 |----------|----------|
-| 🍎 **macOS** | [**Download for Mac**](https://github.com/ekrishgupta/HushApp/releases/latest/download/Hush-macOS.dmg) |
+| 🍎 **macOS** | [**Download for Mac**](https://github.com/ekrishgupta/Hush/releases/latest/download/Hush-macOS.dmg) |
 
 > **macOS:** Open the `.dmg` and drag Hush to Applications. On first launch, right-click → Open (the app is not yet code-signed).
 

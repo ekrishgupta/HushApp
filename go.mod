@@ -1,4 +1,4 @@
-module github.com/ekrishgupta/HushApp
+module github.com/ekrishgupta/Hush
 
 go 1.25.0
 
